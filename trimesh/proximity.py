@@ -5,6 +5,7 @@ proximity.py
 Query mesh- point proximity.
 """
 
+from platform import processor
 import numpy as np
 
 from . import util
@@ -19,6 +20,39 @@ except BaseException as E:
     from .exceptions import ExceptionWrapper
 
     cKDTree = ExceptionWrapper(E)
+
+import functools
+from concurrent.futures import ProcessPoolExecutor
+
+def process_pool(max_workers: int):
+    """
+    A decorator that runs the decorated function in a process pool.
+
+    This is ideal for CPU-bound tasks that can be run in parallel.
+    It creates a ProcessPoolExecutor, and when the decorated function is
+    called, it's submitted to the pool. The call immediately returns a
+    Future object.
+
+    Args:
+        max_workers: The maximum number of processes in the pool.
+    """
+    # The executor is created only once when the decorator is applied
+    executor = ProcessPoolExecutor(max_workers=max_workers)
+
+    def decorator(func):
+        """The actual decorator that wraps the function."""
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            """
+            The wrapper that gets called.
+            It submits the original function to the pool and returns a future.
+            """
+            # Submit the function to the executor with its arguments
+            future = executor.submit(func, *args, **kwargs)
+            return future
+        return wrapper
+    return decorator
+
 
 
 def nearby_faces(mesh, points):
@@ -117,6 +151,7 @@ def closest_point_naive(mesh, points):
     return closest, distance, triangle_id
 
 
+@process_pool(4)
 def closest_point(mesh, points):
     """
     Given a mesh and a list of points find the closest point
