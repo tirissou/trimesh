@@ -5,6 +5,7 @@ proximity.py
 Query mesh- point proximity.
 """
 
+from platform import processor
 import numpy as np
 
 from . import util
@@ -19,6 +20,11 @@ except BaseException as E:
     from .exceptions import ExceptionWrapper
 
     cKDTree = ExceptionWrapper(E)
+
+import functools
+from concurrent.futures import ProcessPoolExecutor
+
+executor = ProcessPoolExecutor(max_workers=5)
 
 
 def nearby_faces(mesh, points):
@@ -238,7 +244,7 @@ def signed_distance(mesh, points):
     points = np.asanyarray(points, dtype=np.float64)
 
     # find the closest point on the mesh to the queried points
-    closest, distance, triangle_id = closest_point(mesh, points)
+    closest, distance, triangle_id = executor.submit(closest_point, mesh, points).result()
 
     # we only care about nonzero distances
     nonzero = distance > tol.merge
